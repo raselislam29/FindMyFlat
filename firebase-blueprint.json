@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "Rental": {
+      "title": "Rental Post",
+      "description": "A house rental posting by a user",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the post" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "price": { "type": "number", "description": "Monthly rent amount" },
+        "location": { "type": "string", "description": "Location or area" },
+        "bedrooms": { "type": "number", "description": "Number of bedrooms" },
+        "bathrooms": { "type": "number", "description": "Number of bathrooms" },
+        "sizeSqft": { "type": "number", "description": "Size of the house in sqft" },
+        "contactPhone": { "type": "string", "description": "Contact phone number" },
+        "hidePhone": { "type": "boolean", "description": "Whether to hide the contact number publicly" },
+        "photoUrls": { "type": "array", "items": { "type": "string" }, "description": "Image URLs" },
+        "propertyType": { "type": "string", "description": "Type like Apartment, House, Room" },
+        "amenities": { "type": "array", "items": { "type": "string" }, "description": "List of amenities" },
+        "ownerId": { "type": "string", "description": "UID of the user who posted" },
+        "createdAt": { "type": "timestamp" },
+        "updatedAt": { "type": "timestamp" },
+        "status": { "type": "string", "enum": ["available", "rented"] }
+      },
+      "required": ["title", "description", "price", "location", "bedrooms", "bathrooms", "sizeSqft", "contactPhone", "ownerId", "createdAt", "updatedAt", "status"]
+    },
+    "Chat": {
+      "title": "Chat Session",
+      "description": "Chat between a user and an owner regarding a rental",
+      "type": "object",
+      "properties": {
+        "rentalId": { "type": "string", "description": "Rental post ID" },
+        "rentalTitle": { "type": "string", "description": "Rental post title" },
+        "participants": { "type": "array", "items": { "type": "string" }, "description": "Array of UIDs (renter and owner)" },
+        "lastMessage": { "type": "string", "description": "Snippet of last message" },
+        "lastMessageTime": { "type": "timestamp" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["rentalId", "rentalTitle", "participants", "lastMessage", "lastMessageTime", "createdAt"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "A single message in a chat",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["text", "senderId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/rentals/{rentalId}": {
+      "schema": { "$ref": "#/entities/Rental" },
+      "description": "Collection of all house rental posts."
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/Chat" },
+      "description": "Collection of chat sessions."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Messages within a chat."
+    },
+    "/users/{userId}/favorites/{rentalId}": {
+      "schema": { "type": "object", "properties": { "addedAt": {"type": "timestamp"} } },
+      "description": "User's favorite rentals."
+    }
+  }
+}
+
