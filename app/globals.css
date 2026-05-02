@@ -1,1 +1,161 @@
 @import "tailwindcss";
+
+/* Modern Design System */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.05);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #ec4899, #8b5cf6);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #db2777, #7c3aed);
+  }
+}
+
+@layer utilities {
+  /* Glass Morphism */
+  .glass-effect {
+    @apply bg-white/10 backdrop-blur-2xl border border-white/20;
+  }
+
+  .glass-effect-strong {
+    @apply bg-white/15 backdrop-blur-3xl border border-white/30;
+  }
+
+  /* Gradient Overlays */
+  .gradient-overlay-primary {
+    @apply bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500;
+  }
+
+  .gradient-overlay-secondary {
+    @apply bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500;
+  }
+
+  /* Modern Shadows */
+  .shadow-glow-pink {
+    @apply shadow-lg shadow-pink-500/20;
+  }
+
+  .shadow-glow-purple {
+    @apply shadow-lg shadow-purple-500/20;
+  }
+
+  .shadow-glow-blue {
+    @apply shadow-lg shadow-blue-500/20;
+  }
+
+  .shadow-premium {
+    @apply shadow-2xl shadow-slate-900/15;
+  }
+
+  .shadow-soft {
+    @apply shadow-sm shadow-slate-900/5;
+  }
+
+  /* Text Effects */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r;
+  }
+
+  .text-gradient-primary {
+    @apply text-gradient from-pink-600 via-purple-600 to-indigo-600;
+  }
+
+  .text-gradient-secondary {
+    @apply text-gradient from-cyan-500 to-pink-500;
+  }
+
+  /* Hover Effects */
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+
+  .hover-scale {
+    @apply transition-transform duration-300 hover:scale-105;
+  }
+
+  .hover-glow {
+    @apply transition-all duration-300 hover:shadow-glow-pink;
+  }
+
+  /* Button Styles */
+  .btn-primary {
+    @apply px-6 py-3 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white font-bold rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/40 hover:-translate-y-0.5 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white font-semibold rounded-xl transition-all duration-300 hover:bg-white/20 hover:border-white/40;
+  }
+
+  .btn-outline {
+    @apply px-6 py-3 border-2 border-gradient-to-r from-pink-500 to-indigo-500 text-slate-800 font-bold rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-pink-50 hover:to-indigo-50;
+  }
+
+  /* Card Styles */
+  .card-modern {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-soft hover-lift overflow-hidden;
+  }
+
+  .card-gradient {
+    @apply bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200/50 shadow-soft hover-lift overflow-hidden;
+  }
+
+  /* Blur & Backdrop */
+  .blur-lg-custom {
+    @apply backdrop-blur-xl bg-white/80 border border-white/50;
+  }
+
+  /* Animation Classes */
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(168, 85, 247, 0.6);
+    }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}

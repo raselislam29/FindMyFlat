@@ -1,11 +1,23 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useLanguage } from '@/context/LanguageContext';
-import { BedDouble, Bath, Square, MapPin, Phone, Clock, FileEdit, Trash2, MessageCircle, Heart } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { motion } from 'motion/react';
-import { useAuth } from '@/context/AuthContext';
+import React from "react";
+import { useLanguage } from "@/context/LanguageContext";
+import {
+  BedDouble,
+  Bath,
+  Square,
+  MapPin,
+  Phone,
+  Clock,
+  FileEdit,
+  Trash2,
+  MessageCircle,
+  Heart,
+  Zap,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { motion } from "motion/react";
+import { useAuth } from "@/context/AuthContext";
 
 export interface Rental {
   id: string;
@@ -18,7 +30,7 @@ export interface Rental {
   sizeSqft: number;
   contactPhone: string;
   ownerId: string;
-  status: 'available' | 'rented';
+  status: "available" | "rented";
   createdAt: any;
   updatedAt: any;
   lat?: number;
@@ -29,153 +41,282 @@ export interface Rental {
   amenities?: string[];
 }
 
-export function RentalCard({ rental, onDelete, onEdit, onClick, onMessageOwner, isFavorite, onToggleFavorite }: { rental: Rental, onDelete?: (id: string) => void, onEdit?: (rental: Rental) => void, onClick?: (rental: Rental) => void, onMessageOwner?: (rental: Rental) => void, isFavorite?: boolean, onToggleFavorite?: (rental: Rental) => void }) {
+export function RentalCard({
+  rental,
+  onDelete,
+  onEdit,
+  onClick,
+  onMessageOwner,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  rental: Rental;
+  onDelete?: (id: string) => void;
+  onEdit?: (rental: Rental) => void;
+  onClick?: (rental: Rental) => void;
+  onMessageOwner?: (rental: Rental) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (rental: Rental) => void;
+}) {
   const { t } = useLanguage();
   const { user } = useAuth();
-  
+
   const isOwner = user?.uid === rental.ownerId;
+  const [isHovered, setIsHovered] = React.useState(false);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
       onClick={() => onClick && onClick(rental)}
-      className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 relative cursor-pointer group/card hover:-translate-y-1"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="card-gradient overflow-hidden relative cursor-pointer group/card h-full flex flex-col"
     >
-      <div className="absolute top-4 left-4 z-10 flex gap-2">
-        {rental.status === 'rented' ? (
-          <div className="bg-red-500/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-md uppercase tracking-wider backdrop-blur-md">
-            {t('rented')}
-          </div>
-        ) : (
-          <div className="bg-emerald-500/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-md uppercase tracking-wider backdrop-blur-md">
-            {t('available')}
-          </div>
-        )}
-      </div>
-      
-      {(!isOwner) && onToggleFavorite && (
-        <button 
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(rental); }}
-          className="absolute top-4 right-4 z-10 p-2.5 bg-white/80 hover:bg-white backdrop-blur-sm rounded-full shadow-sm transition-all hover:scale-110 active:scale-95"
-        >
-          <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
-        </button>
-      )}
-      
-      <div className="aspect-[4/3] w-full bg-slate-100 relative group overflow-hidden">
-        <img 
-          src={rental.photoUrls && rental.photoUrls.length > 0 ? rental.photoUrls[0] : `https://picsum.photos/seed/${rental.id}/800/600`} 
+      {/* Image Container */}
+      <div className="aspect-[4/3] w-full bg-gradient-to-br from-slate-200 to-slate-300 relative group overflow-hidden">
+        <img
+          src={
+            rental.photoUrls && rental.photoUrls.length > 0
+              ? rental.photoUrls[0]
+              : `https://picsum.photos/seed/${rental.id}/800/600`
+          }
           alt={rental.title}
-          className={`w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110 ${rental.status === 'rented' ? 'grayscale opacity-70' : ''}`}
+          className={`w-full h-full object-cover transition-transform duration-700 ${isHovered ? "scale-110" : "scale-100"} ${rental.status === "rented" ? "grayscale opacity-60" : ""}`}
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/90 via-purple-900/40 to-transparent flex flex-col justify-end p-5">
-          <div className="text-white font-medium flex items-baseline gap-1.5">
-            <span className="font-display text-4xl">${rental.price.toLocaleString()}</span> <span className="text-sm font-bold text-indigo-200 tracking-wide uppercase">{t('priceAmount')}</span>
+        {/* Gradient Overlay */}
+        <div
+          className={`absolute inset-0 transition-all duration-500 ${isHovered ? "bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent" : "bg-gradient-to-t from-slate-900/60 via-slate-900/20 to-transparent"}`}
+        ></div>
+
+        {/* Status Badge */}
+        <div className="absolute top-4 left-4 z-10 flex gap-2">
+          {rental.status === "rented" ? (
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              className="bg-red-500/95 backdrop-blur-md text-white text-[10px] font-black px-3.5 py-1.5 rounded-full shadow-lg shadow-red-500/30 uppercase tracking-widest"
+            >
+              {t("rented")}
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              className="bg-emerald-500/95 backdrop-blur-md text-white text-[10px] font-black px-3.5 py-1.5 rounded-full shadow-lg shadow-emerald-500/30 uppercase tracking-widest flex items-center gap-1"
+            >
+              <Zap className="h-3 w-3" />
+              {t("available")}
+            </motion.div>
+          )}
+        </div>
+
+        {/* Favorite Button */}
+        {!isOwner && onToggleFavorite && (
+          <motion.button
+            whileHover={{ scale: 1.15 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(rental);
+            }}
+            className="absolute top-4 right-4 z-10 p-2.5 bg-white/90 hover:bg-white backdrop-blur-md rounded-full shadow-lg transition-all group/fav"
+          >
+            <Heart
+              className={`h-5 w-5 transition-all duration-300 ${isFavorite ? "fill-red-500 text-red-500 animate-pulse" : "text-gray-400 group-hover/fav:text-red-500"}`}
+            />
+          </motion.button>
+        )}
+
+        {/* Price Overlay */}
+        <div
+          className={`absolute bottom-0 left-0 right-0 transition-all duration-500 ${isHovered ? "opacity-100 translate-y-0" : "opacity-90"} p-5`}
+        >
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-5xl font-black text-white drop-shadow-lg">
+              ${rental.price.toLocaleString()}
+            </span>
+            <span className="text-sm font-bold text-gray-200 tracking-wide uppercase drop-shadow">
+              {t("priceAmount")}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="p-5">
-        <h3 className="font-display font-bold text-xl text-slate-800 mb-2 line-clamp-1 group-hover/card:text-pink-600 transition-colors">{rental.title}</h3>
-        
-        <div className="flex items-center text-slate-500 text-sm mb-4">
-          <MapPin className="h-4 w-4 mr-1.5 shrink-0 text-amber-500" />
-          <span className="truncate">{rental.location}</span>
-        </div>
-        
-        <div className="flex justify-between items-center py-4 border-t border-b border-indigo-50 mb-4 px-2">
-          <div className="flex flex-col items-center justify-center text-center">
-            <BedDouble className="h-5 w-5 text-indigo-500 mb-1" />
-            <span className="text-sm font-bold text-slate-800">{rental.bedrooms}</span>
-            <span className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mt-0.5">{t('bedrooms')}</span>
-          </div>
-          <div className="flex flex-col items-center justify-center text-center border-l border-r border-indigo-50 px-6">
-            <Bath className="h-5 w-5 text-cyan-500 mb-1" />
-            <span className="text-sm font-bold text-slate-800">{rental.bathrooms}</span>
-            <span className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mt-0.5">{t('bathrooms')}</span>
-          </div>
-          <div className="flex flex-col items-center justify-center text-center">
-            <Square className="h-5 w-5 text-purple-500 mb-1" />
-            <span className="text-sm font-bold text-slate-800">{rental.sizeSqft}</span>
-            <span className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mt-0.5">{t('sqft')}</span>
+      {/* Content Container */}
+      <div className="p-6 flex flex-col flex-1">
+        {/* Title & Location */}
+        <div className="mb-4">
+          <h3 className="font-display font-black text-lg text-slate-900 mb-2 line-clamp-1 group-hover/card:text-transparent group-hover/card:bg-gradient-to-r group-hover/card:from-pink-600 group-hover/card:to-purple-600 group-hover/card:bg-clip-text transition-all duration-300">
+            {rental.title}
+          </h3>
+
+          <div className="flex items-center text-slate-600 text-sm font-semibold mb-2 group-hover/card:text-slate-900 transition-colors">
+            <MapPin className="h-4 w-4 mr-2 text-gradient-secondary shrink-0" />
+            <span className="truncate">{rental.location}</span>
           </div>
         </div>
-        
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-3 gap-3 py-4 mb-4 px-2 bg-gradient-to-r from-slate-100/50 to-slate-50/50 rounded-xl border border-slate-200/50">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="flex flex-col items-center justify-center text-center p-2"
+          >
+            <motion.div
+              whileHover={{ rotate: 10 }}
+              className="inline-flex items-center justify-center w-8 h-8 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-lg mb-1.5 text-white shadow-lg"
+            >
+              <BedDouble className="h-4 w-4" />
+            </motion.div>
+            <span className="text-base font-black text-slate-900">
+              {rental.bedrooms}
+            </span>
+            <span className="text-[9px] uppercase text-slate-500 font-bold tracking-widest mt-1">
+              {t("bedrooms")}
+            </span>
+          </motion.div>
+
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="flex flex-col items-center justify-center text-center p-2 border-l border-r border-slate-200/70"
+          >
+            <motion.div
+              whileHover={{ rotate: 10 }}
+              className="inline-flex items-center justify-center w-8 h-8 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-lg mb-1.5 text-white shadow-lg"
+            >
+              <Bath className="h-4 w-4" />
+            </motion.div>
+            <span className="text-base font-black text-slate-900">
+              {rental.bathrooms}
+            </span>
+            <span className="text-[9px] uppercase text-slate-500 font-bold tracking-widest mt-1">
+              {t("bathrooms")}
+            </span>
+          </motion.div>
+
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="flex flex-col items-center justify-center text-center p-2"
+          >
+            <motion.div
+              whileHover={{ rotate: 10 }}
+              className="inline-flex items-center justify-center w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg mb-1.5 text-white shadow-lg"
+            >
+              <Square className="h-4 w-4" />
+            </motion.div>
+            <span className="text-base font-black text-slate-900">
+              {rental.sizeSqft}
+            </span>
+            <span className="text-[9px] uppercase text-slate-500 font-bold tracking-widest mt-1">
+              {t("sqft")}
+            </span>
+          </motion.div>
+        </div>
+
+        {/* Amenities */}
         {rental.amenities && rental.amenities.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-4">
+          <div className="flex flex-wrap gap-1.5 mb-4">
             {rental.amenities.slice(0, 3).map((amenity, idx) => (
-              <span key={`${amenity}-${idx}`} className="px-2 py-0.5 bg-pink-50 text-pink-700 text-xs rounded-full font-bold">
+              <motion.span
+                key={`${amenity}-${idx}`}
+                whileHover={{ scale: 1.05 }}
+                className="px-2.5 py-1 bg-gradient-to-r from-pink-100 to-pink-50 text-pink-700 text-xs rounded-full font-bold border border-pink-200/50 shadow-sm"
+              >
                 {amenity}
-              </span>
+              </motion.span>
             ))}
             {rental.amenities.length > 3 && (
-              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs rounded-full font-bold">
+              <span className="px-2.5 py-1 bg-gradient-to-r from-indigo-100 to-indigo-50 text-indigo-700 text-xs rounded-full font-bold border border-indigo-200/50">
                 +{rental.amenities.length - 3}
               </span>
             )}
           </div>
         )}
-        
-        <div className="text-sm text-slate-500 mb-4 line-clamp-2 min-h-[40px] leading-relaxed">
+
+        {/* Description */}
+        <div className="text-sm text-slate-600 mb-4 line-clamp-2 leading-relaxed flex-1">
           {rental.description}
         </div>
-        
-        <div className="flex items-center justify-between mt-auto pt-2">
+
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-200/50">
           <div className="flex items-center gap-2">
             {!rental.hidePhone ? (
-              <a 
+              <motion.a
+                whileHover={{ scale: 1.12 }}
+                whileTap={{ scale: 0.95 }}
                 href={`tel:${rental.contactPhone}`}
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center justify-center bg-cyan-50 text-cyan-600 hover:bg-cyan-500 hover:text-white h-9 w-9 rounded-full transition-all duration-300"
-                title={t('contactOwner')}
+                className="inline-flex items-center justify-center bg-gradient-to-br from-cyan-400 to-cyan-600 text-white h-9 w-9 rounded-full transition-all duration-300 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50"
+                title={t("contactOwner")}
               >
                 <Phone className="h-4 w-4" />
-              </a>
+              </motion.a>
             ) : (
-              <div 
-                className="inline-flex items-center justify-center bg-slate-50 text-slate-300 h-9 w-9 rounded-full cursor-not-allowed border border-slate-100"
-                title={t('hiddenPhone')}
+              <div
+                className="inline-flex items-center justify-center bg-slate-100 text-slate-300 h-9 w-9 rounded-full cursor-not-allowed border border-slate-200"
+                title={t("hiddenPhone")}
               >
                 <Phone className="h-4 w-4" />
               </div>
             )}
-            {(!isOwner) && onMessageOwner && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); onMessageOwner(rental); }}
-                className="inline-flex items-center justify-center bg-pink-50 text-pink-600 hover:bg-pink-500 hover:text-white h-9 w-9 rounded-full transition-all duration-300"
+            {!isOwner && onMessageOwner && (
+              <motion.button
+                whileHover={{ scale: 1.12 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMessageOwner(rental);
+                }}
+                className="inline-flex items-center justify-center bg-gradient-to-br from-pink-400 to-pink-600 text-white h-9 w-9 rounded-full transition-all duration-300 shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50"
                 title="Message Owner"
               >
                 <MessageCircle className="h-4 w-4" />
-              </button>
+              </motion.button>
             )}
           </div>
-          
-          <span className="text-[11px] text-slate-400 font-bold tracking-wide flex items-center uppercase">
-            <Clock className="h-3 w-3 mr-1.5" />
-            {rental.createdAt?.seconds ? formatDistanceToNow(rental.createdAt.seconds * 1000, { addSuffix: true }) : 'Just now'}
+
+          <span className="text-[10px] text-slate-500 font-bold tracking-wide uppercase flex items-center shrink-0">
+            <Clock className="h-3 w-3 mr-1" />
+            {rental.createdAt?.seconds
+              ? formatDistanceToNow(rental.createdAt.seconds * 1000, {
+                  addSuffix: true,
+                })
+              : "Just now"}
           </span>
 
           {isOwner && (
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               {onEdit && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onEdit(rental); }}
-                  className="p-2 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-full transition-colors"
-                  title={t('edit')}
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(rental);
+                  }}
+                  className="p-2 text-slate-400 hover:bg-indigo-100 hover:text-indigo-600 rounded-lg transition-all"
+                  title={t("edit")}
                 >
                   <FileEdit className="h-4 w-4" />
-                </button>
+                </motion.button>
               )}
               {onDelete && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onDelete(rental.id); }}
-                  className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors"
-                  title={t('delete')}
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(rental.id);
+                  }}
+                  className="p-2 text-slate-400 hover:bg-red-100 hover:text-red-600 rounded-lg transition-all"
+                  title={t("delete")}
                 >
                   <Trash2 className="h-4 w-4" />
-                </button>
+                </motion.button>
               )}
             </div>
           )}
