@@ -9,6 +9,7 @@ import { CreateRentalModal } from "@/components/CreateRentalModal";
 import { LoginModal } from "@/components/LoginModal";
 import { db } from "@/lib/firebase";
 import {
+  addDoc,
   collection,
   query,
   orderBy,
@@ -56,8 +57,8 @@ export default function Home() {
     }
     /* eslint-enable react-hooks/set-state-in-effect */
     const q = query(collection(db, "users", user.uid, "favorites"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const favs = new Set(snapshot.docs.map((d) => d.id));
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const favs = new Set<string>(snapshot.docs.map((d: any) => d.id));
       setFavorites(favs);
     });
     return () => unsubscribe();
@@ -92,15 +93,15 @@ export default function Home() {
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
-        const fetchedRentals = snapshot.docs.map((doc) => ({
+      (snapshot: any) => {
+        const fetchedRentals = snapshot.docs.map((doc: any) => ({
           id: doc.id,
           ...doc.data(),
         })) as Rental[];
         setRentals(fetchedRentals);
         setLoading(false);
       },
-      (error) => {
+      (error: any) => {
         console.error("Error fetching rentals:", error);
         setLoading(false);
       },
@@ -137,6 +138,18 @@ export default function Home() {
     } catch (e: any) {
       console.error("Failed to toggle fav", e);
     }
+  };
+
+  const handleOpenRentalDetails = (rental: Rental) => {
+    setSelectedRental(rental);
+
+    void addDoc(collection(db, "rentals", rental.id, "views"), {
+      viewedAt: serverTimestamp(),
+      viewerId: user?.uid || null,
+      viewerEmail: user?.email || null,
+    }).catch((error: any) => {
+      console.error("Failed to track listing view", error);
+    });
   };
 
   const filteredRentals = rentals.filter((rental) => {
@@ -373,7 +386,7 @@ export default function Home() {
                         setEditingRental(r);
                         setIsModalOpen(true);
                       }}
-                      onClick={(r) => setSelectedRental(r)}
+                      onClick={handleOpenRentalDetails}
                       onMessageOwner={(r) => {
                         if (!user) {
                           setIsLoginModalOpen(true);
@@ -400,7 +413,7 @@ export default function Home() {
               >
                 <RentalsMap
                   rentals={filteredRentals}
-                  onMarkerClick={(r) => setSelectedRental(r)}
+                  onMarkerClick={handleOpenRentalDetails}
                 />
               </motion.div>
             )

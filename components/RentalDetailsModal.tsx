@@ -1,22 +1,144 @@
-'use client';
+﻿"use client";
 
-import React from 'react';
-import { useLanguage } from '@/context/LanguageContext';
-import { Rental } from './RentalCard';
-import { X, BedDouble, Bath, Square, MapPin, Phone, Clock, FileEdit, Trash2, MessageCircle, Heart, Navigation, Shield, GraduationCap, TrainFront } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { motion, AnimatePresence } from 'motion/react';
-import { SingleRentalMap } from './DynamicMap';
-import { useAuth } from '@/context/AuthContext';
+import React from "react";
+import { useLanguage } from "@/context/LanguageContext";
+import { Rental } from "./RentalCard";
+import {
+  X,
+  BedDouble,
+  Bath,
+  Square,
+  MapPin,
+  Phone,
+  Clock,
+  FileEdit,
+  Trash2,
+  MessageCircle,
+  Heart,
+  Navigation,
+  Shield,
+  GraduationCap,
+  TrainFront,
+  Bus,
+  Flag,
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { motion, AnimatePresence } from "motion/react";
+import { SingleRentalMap } from "./DynamicMap";
+import { useAuth } from "@/context/AuthContext";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
 
-export function RentalDetailsModal({ rental, isOpen, onClose, onEdit, onDelete, onMessageOwner, isFavorite, onToggleFavorite }: { rental: Rental | null, isOpen: boolean, onClose: () => void, onEdit?: (r: Rental) => void, onDelete?: (id: string) => void, onMessageOwner?: (r: Rental) => void, isFavorite?: boolean, onToggleFavorite?: (rental: Rental) => void }) {
+type NeighborhoodInsights = {
+  walkabilityScore: number;
+  nearbyTransitStops: Array<{
+    name: string;
+    type: string;
+    distanceMeters: number;
+  }>;
+  commuteTimes: Array<{
+    name: string;
+    durationMinutes: number;
+  }>;
+};
+
+export function RentalDetailsModal({
+  rental,
+  isOpen,
+  onClose,
+  onEdit,
+  onDelete,
+  onMessageOwner,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  rental: Rental | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onEdit?: (r: Rental) => void;
+  onDelete?: (id: string) => void;
+  onMessageOwner?: (r: Rental) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (rental: Rental) => void;
+}) {
   const { t } = useLanguage();
   const { user } = useAuth();
 
   const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
+  const [insights, setInsights] = React.useState<NeighborhoodInsights | null>(
+    null,
+  );
+  const [insightsLoading, setInsightsLoading] = React.useState(false);
+  const [insightsError, setInsightsError] = React.useState("");
+  const [reportOpen, setReportOpen] = React.useState(false);
+  const [reportReason, setReportReason] = React.useState("Suspicious listing");
+  const [reportDetails, setReportDetails] = React.useState("");
+  const [reportLoading, setReportLoading] = React.useState(false);
+  const [reportStatus, setReportStatus] = React.useState("");
+  const [ownerProfile, setOwnerProfile] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    if (!isOpen || !rental?.lat || !rental?.lng) {
+      setInsights(null);
+      setInsightsError("");
+      return;
+    }
+
+    let isMounted = true;
+    setInsightsLoading(true);
+    setInsightsError("");
+
+    fetch(`/api/neighborhood-insights?lat=${rental.lat}&lng=${rental.lng}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not load neighborhood insights");
+        }
+        return response.json();
+      })
+      .then((payload: NeighborhoodInsights) => {
+        if (!isMounted) return;
+        setInsights(payload);
+      })
+      .catch((error: any) => {
+        if (!isMounted) return;
+        setInsights(null);
+        setInsightsError(error?.message || "Could not load nearby data.");
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setInsightsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, rental?.id, rental?.lat, rental?.lng]);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const loadOwner = async () => {
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        const ref = doc(db, 'users', rental!.ownerId);
+        const snap = await getDoc(ref);
+        if (!mounted) return;
+        if (snap.exists()) setOwnerProfile(snap.data());
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    if (isOpen && rental?.ownerId) void loadOwner();
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, rental?.ownerId]);
 
   if (!isOpen || !rental) return null;
 
@@ -36,329 +158,213 @@ export function RentalDetailsModal({ rental, isOpen, onClose, onEdit, onDelete, 
     }
   };
 
+  const handleReportListing = async () => {
+    if (!user) {
+      window.dispatchEvent(
+        new CustomEvent("open-login", { detail: { mode: "login" } }),
+      );
+      return;
+    }
+
+    setReportLoading(true);
+    setReportStatus("");
+
+    try {
+      await addDoc(collection(db, "listingReports"), {
+        rentalId: rental.id,
+        rentalTitle: rental.title,
+        listingOwnerId: rental.ownerId,
+        reporterId: user.uid,
+        reporterEmail: user.email || null,
+        reason: reportReason,
+        details: reportDetails.trim() || null,
+        status: "open",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      setReportDetails("");
+      setReportOpen(false);
+      setReportStatus("Report submitted. Our moderation team will review it.");
+    } catch (error) {
+      console.error("Failed to submit listing report", error);
+      setReportStatus("Could not submit report. Please try again.");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   return (
-    <AnimatePresence>
+    <>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-        <motion.div 
-          initial={{ opacity: 0 }} 
-          animate={{ opacity: 1 }} 
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/70 backdrop-blur-xl"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={onClose}
         />
-        
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9, y: 30 }} 
-          animate={{ opacity: 1, scale: 1, y: 0 }} 
-          exit={{ opacity: 0, scale: 0.9, y: 30 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto sm:overflow-hidden bg-gradient-to-br from-white to-slate-50 rounded-3xl shadow-premium flex flex-col sm:flex-row border border-white/50"
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto sm:overflow-hidden bg-white rounded-2xl shadow-xl flex flex-col sm:flex-row"
         >
           {/* Mobile close button */}
-          <motion.button 
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onClose} 
-            className="sm:hidden absolute top-4 right-4 p-3 bg-white/90 hover:bg-white backdrop-blur-md rounded-full z-10 transition-all shadow-lg"
+          <button
+            onClick={onClose}
+            className="sm:hidden absolute top-4 right-4 p-2 bg-white/80 hover:bg-gray-100 backdrop-blur rounded-full z-10 transition-colors"
           >
-            <X className="h-5 w-5 text-slate-600" />
-          </motion.button>
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
 
-          {/* Main Content */}
-          <div className="w-full sm:w-[60%] p-8 lg:p-10 flex flex-col bg-white sm:overflow-y-auto">
-            {/* Header */}
+          <div className="w-full sm:w-[60%] p-8 flex flex-col bg-white sm:overflow-y-auto style-scrollbar">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <div className="mb-4">
-                  {rental.status === 'rented' ? (
-                    <motion.span 
-                      initial={{ scale: 0.8 }}
-                      animate={{ scale: 1 }}
-                      className="bg-red-500/95 text-white shadow-lg shadow-red-500/30 text-[11px] font-black px-4 py-2 rounded-full uppercase tracking-widest backdrop-blur-md"
-                    >
-                      {t('rented')}
-                    </motion.span>
+                <div className="mb-3">
+                  {rental.status === "rented" ? (
+                    <span className="bg-red-500 text-white shadow-md text-[11px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
+                      {t("rented")}
+                    </span>
                   ) : (
-                    <motion.span 
-                      initial={{ scale: 0.8 }}
-                      animate={{ scale: 1 }}
-                      className="bg-emerald-500/95 text-white shadow-lg shadow-emerald-500/30 text-[11px] font-black px-4 py-2 rounded-full uppercase tracking-widest backdrop-blur-md"
-                    >
-                      {t('available')}
-                    </motion.span>
+                    <span className="bg-emerald-500 shadow-md text-white border-transparent text-[11px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
+                      {t("available")}
+                    </span>
                   )}
                 </div>
-                <h2 className="text-4xl lg:text-5xl font-display font-black text-slate-900 mb-3 leading-tight">{rental.title}</h2>
-                <motion.div 
-                  whileHover={{ scale: 1.02 }}
-                  className="flex items-center text-slate-600 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 px-4 py-2.5 rounded-lg self-start inline-flex mt-2 border border-amber-200/50 shadow-soft"
-                >
-                  <MapPin className="h-5 w-5 mr-2 text-amber-500" />
-                  <span className="font-bold tracking-wide text-sm">{rental.location}</span>
-                </motion.div>
+                <h2 className="text-3xl font-display font-bold text-slate-800 mb-2 leading-tight">
+                  {rental.title}
+                </h2>
+                <div className="flex items-center text-slate-500 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-md self-start inline-flex mt-1">
+                  <MapPin className="h-4 w-4 mr-1.5" />
+                  <span className="font-medium tracking-wide text-sm">
+                    {rental.location}
+                  </span>
+                </div>
               </div>
-              
-              {(!isOwner) && onToggleFavorite && (
-                <motion.button 
-                  whileHover={{ scale: 1.15 }}
-                  whileTap={{ scale: 0.9 }}
+
+              {!isOwner && onToggleFavorite && (
+                <button
                   onClick={() => onToggleFavorite(rental)}
-                  className="p-3 bg-white hover:bg-gradient-to-br hover:from-pink-50 hover:to-rose-50 rounded-full transition-all flex-shrink-0 border border-slate-200/50 shadow-soft hover:shadow-glow-pink"
+                  className="p-3 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
                 >
-                  <Heart className={`h-6 w-6 transition-all ${isFavorite ? 'fill-red-500 text-red-500 animate-pulse' : 'text-slate-400 hover:text-red-500'}`} />
-                </motion.button>
+                  <Heart
+                    className={`h-6 w-6 ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-400"}`}
+                  />
+                </button>
               )}
             </div>
 
-            {/* Price */}
-            <div className="text-5xl lg:text-6xl font-display font-black text-gradient-primary mb-8 border-b-2 border-gradient-to-r from-pink-200 to-purple-200 pb-6">
-              ${rental.price.toLocaleString()} 
-              <span className="text-base font-sans font-bold tracking-widest uppercase text-slate-500 ml-3 align-middle">{t('priceAmount')}</span>
-            </div>
-            
-            {/* Property Features Grid */}
-            <div className="grid grid-cols-3 gap-3 py-4 mb-8 px-1">
-              <motion.div 
-                whileHover={{ scale: 1.05, y: -2 }}
-                className="flex flex-col items-center justify-center text-center bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-indigo-200/50 rounded-2xl p-5 shadow-soft hover:shadow-glow-blue"
-              >
-                <motion.div
-                  whileHover={{ rotate: 10 }}
-                  className="inline-flex items-center justify-center w-10 h-10 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-lg mb-3 text-white shadow-lg"
-                >
-                  <BedDouble className="h-5 w-5" />
-                </motion.div>
-                <span className="font-black text-indigo-900 text-2xl">{rental.bedrooms}</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-600 mt-2">{t('bedrooms')}</span>
-              </motion.div>
-
-              <motion.div 
-                whileHover={{ scale: 1.05, y: -2 }}
-                className="flex flex-col items-center justify-center text-center bg-gradient-to-br from-cyan-50 to-cyan-100 border-2 border-cyan-200/50 rounded-2xl p-5 shadow-soft hover:shadow-glow-blue"
-              >
-                <motion.div
-                  whileHover={{ rotate: 10 }}
-                  className="inline-flex items-center justify-center w-10 h-10 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-lg mb-3 text-white shadow-lg"
-                >
-                  <Bath className="h-5 w-5" />
-                </motion.div>
-                <span className="font-black text-cyan-900 text-2xl">{rental.bathrooms}</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-cyan-600 mt-2">{t('bathrooms')}</span>
-              </motion.div>
-
-              <motion.div 
-                whileHover={{ scale: 1.05, y: -2 }}
-                className="flex flex-col items-center justify-center text-center bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200/50 rounded-2xl p-5 shadow-soft hover:shadow-glow-purple"
-              >
-                <motion.div
-                  whileHover={{ rotate: 10 }}
-                  className="inline-flex items-center justify-center w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg mb-3 text-white shadow-lg"
-                >
-                  <Square className="h-5 w-5" />
-                </motion.div>
-                <span className="font-black text-purple-900 text-2xl">{rental.sizeSqft}</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-purple-600 mt-2">{t('sqft')}</span>
-              </motion.div>
+            <div className="text-4xl font-display text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 font-extrabold mb-8 border-b border-indigo-50 pb-6">
+              ${rental.price.toLocaleString()}{" "}
+              <span className="text-sm font-sans font-bold tracking-widest uppercase text-slate-400 ml-2">
+                {t("priceAmount")}
+              </span>
             </div>
 
-            {/* Content Section */}
+            <div className="grid grid-cols-3 gap-2 py-2 mb-8">
+              <div className="flex flex-col items-center justify-center text-center bg-indigo-50/80 border border-indigo-100/50 rounded-2xl p-4">
+                <BedDouble className="h-6 w-6 text-indigo-500 mb-2" />
+                <span className="font-bold text-indigo-900 text-lg">
+                  {rental.bedrooms}
+                </span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-500 mt-1">
+                  {t("bedrooms")}
+                </span>
+              </div>
+              <div className="flex flex-col items-center justify-center text-center bg-cyan-50/80 border border-cyan-100/50 rounded-2xl p-4">
+                <Bath className="h-6 w-6 text-cyan-500 mb-2" />
+                <span className="font-bold text-cyan-900 text-lg">
+                  {rental.bathrooms}
+                </span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-500 mt-1">
+                  {t("bathrooms")}
+                </span>
+              </div>
+              <div className="flex flex-col items-center justify-center text-center bg-purple-50/80 border border-purple-100/50 rounded-2xl p-4">
+                <Square className="h-6 w-6 text-purple-500 mb-2" />
+                <span className="font-bold text-purple-900 text-lg">
+                  {rental.sizeSqft}
+                </span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-purple-500 mt-1">
+                  {t("sqft")}
+                </span>
+              </div>
+            </div>
+
             <div className="flex-1">
-              {/* Amenities */}
               {rental.amenities && rental.amenities.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="font-display font-black text-slate-900 mb-4 text-xl">✨ Amenities</h3>
-                  <div className="flex flex-wrap gap-2.5">
+                <div className="mb-6">
+                  <h3 className="font-display font-bold text-slate-800 mb-3 text-lg">
+                    Amenities
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
                     {rental.amenities.map((amenity, idx) => (
-                      <motion.span 
+                      <span
                         key={`${amenity}-${idx}`}
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        className="px-4 py-2.5 bg-gradient-to-r from-pink-100 to-pink-50 text-pink-700 text-sm rounded-full font-bold border-2 border-pink-200/50 shadow-soft hover:shadow-glow-pink"
+                        className="px-3 py-1.5 bg-pink-50 text-pink-700 text-sm rounded-full font-bold border border-pink-100"
                       >
                         {amenity}
-                      </motion.span>
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Photo Gallery */}
               {rental.photoUrls && rental.photoUrls.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="font-display font-black text-slate-900 mb-4 text-xl">📸 Photos</h3>
-                  <div className="flex gap-3 overflow-x-auto pb-4 snap-x">
+                <div className="mb-6">
+                  <h3 className="font-display font-bold text-gray-900 mb-3 text-lg">
+                    Photos
+                  </h3>
+                  <div className="flex gap-3 overflow-x-auto pb-4 snap-x style-scrollbar">
                     {rental.photoUrls.map((url, idx) => (
-                      <motion.div 
-                        key={idx} 
-                        whileHover={{ scale: 1.05 }}
-                        onClick={() => setSelectedImage(url)} 
-                        className="shrink-0 w-64 h-48 rounded-2xl overflow-hidden snap-center border-2 border-slate-200/50 shadow-soft relative group cursor-pointer hover:shadow-lg"
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedImage(url)}
+                        className="shrink-0 w-56 h-40 rounded-xl overflow-hidden snap-center border border-gray-100 shadow-sm relative group cursor-pointer"
                       >
-                        <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm">
-                          <motion.span 
-                            initial={{ scale: 0.9 }}
-                            whileHover={{ scale: 1 }}
-                            className="bg-white/95 text-slate-900 text-sm font-bold px-4 py-2 rounded-lg shadow-lg"
-                          >
-                            View Full
-                          </motion.span>
+                        <img
+                          src={url}
+                          alt={`Photo ${idx + 1}`}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="bg-white/90 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
+                            View Full Image
+                          </span>
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Description */}
-              <div>
-                <h3 className="font-display font-black text-slate-900 mb-4 text-xl">📝 Description</h3>
-                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap font-medium text-base bg-gradient-to-br from-slate-50 to-slate-100 p-5 rounded-2xl border border-slate-200/50">{rental.description}</p>
-              </div>
+              <h3 className="font-display font-bold text-slate-800 mb-3 text-lg">
+                {t("descriptionLabel")}
+              </h3>
+              <p className="text-slate-600 leading-relaxed whitespace-pre-wrap font-sans text-base">
+                {rental.description}
+              </p>
             </div>
 
-            {/* Action Buttons */}
-            <div className="mt-8 pt-6 border-t-2 border-slate-200/50 flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3 flex-wrap">
+            <div className="mt-8 pt-6 border-t border-indigo-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 {!rental.hidePhone ? (
-                  <motion.a 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <a
                     href={`tel:${rental.contactPhone}`}
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-6 py-3.5 rounded-xl font-black transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 text-sm uppercase tracking-wide"
+                    className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-6 py-3 rounded-full font-bold transition-all shadow-md flex items-center gap-2"
                   >
                     <Phone className="h-5 w-5" />
-                    {t('call')}
-                  </motion.a>
-                ) : (
-                  <div className="bg-slate-100 text-slate-500 px-6 py-3.5 rounded-xl font-bold flex items-center gap-2 border-2 border-slate-200">
-                    <Phone className="h-5 w-5 opacity-50" />
-                    {t('hiddenPhone')}
-                  </div>
-                )}
-                
-                {(!isOwner) && onMessageOwner && (
-                  <motion.button 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => onMessageOwner(rental)}
-                    className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white px-6 py-3.5 rounded-xl font-black transition-all shadow-lg shadow-pink-500/30 flex items-center gap-2 text-sm uppercase tracking-wide"
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                    Message
-                  </motion.button>
-                )}
-                
-                {isOwner && (
-                  <>
-                    {onEdit && (
-                       <motion.button 
-                         whileHover={{ scale: 1.05 }}
-                         whileTap={{ scale: 0.95 }}
-                         onClick={handleEdit} 
-                         className="p-3 bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-600 hover:bg-indigo-200 rounded-xl transition-all font-black shadow-soft hover:shadow-glow-blue" 
-                         title={t('edit')}
-                       >
-                         <FileEdit className="h-5 w-5" />
-                       </motion.button>
-                    )}
-                    {onDelete && (
-                       <motion.button 
-                         whileHover={{ scale: 1.05 }}
-                         whileTap={{ scale: 0.95 }}
-                         onClick={handleDelete} 
-                         className="p-3 bg-gradient-to-br from-red-100 to-red-50 border-2 border-red-200 text-red-600 hover:bg-red-200 rounded-xl transition-all font-black shadow-soft hover:shadow-glow-pink" 
-                         title={t('delete')}
-                       >
-                         <Trash2 className="h-5 w-5" />
-                       </motion.button>
-                    )}
-                  </>
-                )}
-              </div>
-              <motion.span 
-                whileHover={{ scale: 1.05 }}
-                className="text-sm text-slate-500 font-black uppercase tracking-wider flex items-center bg-slate-100/50 px-4 py-2.5 rounded-lg border border-slate-200/50"
-              >
-                <Clock className="h-4 w-4 mr-2" />
-                {rental.createdAt?.seconds ? formatDistanceToNow(rental.createdAt.seconds * 1000, { addSuffix: true }) : 'Just now'}
-              </motion.span>
-            </div>
-          </div>
-
-          {/* Sidebar - Map and Insights */}
-          <div className="w-full sm:w-[40%] bg-gradient-to-br from-slate-50 to-slate-100 border-l-2 border-slate-200/50 flex flex-col">
-             {/* Desktop close button */}
-             <div className="hidden sm:flex justify-end p-4 pb-0 z-10 absolute top-0 right-0">
-               <motion.button 
-                 whileHover={{ scale: 1.1 }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={onClose} 
-                 className="p-3 bg-white hover:bg-gradient-to-br hover:from-slate-100 hover:to-slate-50 rounded-full shadow-soft hover:shadow-lg transition-all border border-slate-200/50 z-10"
-               >
-                 <X className="h-5 w-5 text-slate-600" />
-               </motion.button>
-             </div>
-
-             {/* Map Section */}
-             <div className="h-[280px] w-full bg-gradient-to-br from-blue-200 to-purple-200 z-0 rounded-b-none sm:rounded-none overflow-hidden">
-               <SingleRentalMap rental={rental} />
-             </div>
-
-             {/* Insights Section */}
-             <div className="p-6 overflow-y-auto flex-1">
-               <h3 className="font-display text-lg font-black text-slate-900 mb-5 pl-1">🏘️ Location Insights</h3>
-               
-               {/* Commute Card */}
-               <motion.div 
-                 whileHover={{ scale: 1.02, y: -2 }}
-                 className="bg-white rounded-2xl p-5 shadow-soft border-2 border-slate-200/50 mb-4 hover:shadow-lg transition-all"
-               >
-                 <h4 className="flex items-center gap-2 font-display font-bold text-slate-900 mb-3">
-                   <Navigation className="w-5 h-5 text-violet-500" /> Commute
-                 </h4>
-                 <div className="space-y-2.5 text-sm text-slate-700 pl-7 font-medium">
-                   <p className="flex justify-between"><span>To Downtown</span> <span className="font-bold text-slate-900">~25 min MTA</span></p>
-                   <p className="flex justify-between"><span>Nearest Subway</span> <span className="font-bold text-slate-900">3 blocks</span></p>
-                   <p className="text-xs text-slate-500 mt-2 italic font-normal">*Estimates based on typical times</p>
-                 </div>
-               </motion.div>
-
-               {/* Neighborhood Card */}
-               <motion.div 
-                 whileHover={{ scale: 1.02, y: -2 }}
-                 className="bg-white rounded-2xl p-5 shadow-soft border-2 border-slate-200/50 hover:shadow-lg transition-all"
-               >
-                 <h4 className="font-display font-bold text-slate-900 mb-4">Neighborhood Vibe</h4>
-                 <ul className="space-y-3.5 text-sm text-slate-700">
-                   <li className="flex items-start gap-3">
-                     <Shield className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5 font-bold" />
-                     <span><strong className="text-slate-900">Safety:</strong> Generally highly rated. Vibrant streets after dark.</span>
-                   </li>
-                   <li className="flex items-start gap-3">
-                     <GraduationCap className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 font-bold" />
-                     <span><strong className="text-slate-900">Schools:</strong> District highly ranked for elementary education.</span>
-                   </li>
-                   <li className="flex items-start gap-3">
-                     <TrainFront className="w-5 h-5 text-cyan-500 shrink-0 mt-0.5 font-bold" />
-                     <span><strong className="text-slate-900">Transit:</strong> Excellent access to major bus and subway lines.</span>
-                   </li>
-                 </ul>
-                 <p className="text-xs text-slate-500 mt-4 pt-4 border-t border-slate-200 italic font-normal">*AI-generated generic insight, API expanding soon.</p>
-               </motion.div>
-             </div>
-          </div>
-        </motion.div>
-      </div>
+                    {t("call")}
                   </a>
                 ) : (
                   <div className="bg-slate-50 text-slate-400 px-5 py-2.5 rounded-full font-bold flex items-center gap-2 border border-slate-200">
                     <Phone className="h-5 w-5 opacity-50" />
-                    {t('hiddenPhone')}
+                    {t("hiddenPhone")}
                   </div>
                 )}
-                
-                {(!isOwner) && onMessageOwner && (
-                  <button 
+
+                {!isOwner && onMessageOwner && (
+                  <button
                     onClick={() => onMessageOwner(rental)}
                     className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white px-6 py-3 rounded-full font-bold transition-all flex items-center gap-2 shadow-md"
                   >
@@ -366,77 +372,288 @@ export function RentalDetailsModal({ rental, isOpen, onClose, onEdit, onDelete, 
                     Message
                   </button>
                 )}
-                
+
                 {isOwner && (
                   <>
                     {onEdit && (
-                       <button onClick={handleEdit} className="p-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-full transition-colors font-bold" title={t('edit')}>
-                         <FileEdit className="h-5 w-5" />
-                       </button>
+                      <button
+                        onClick={handleEdit}
+                        className="p-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-full transition-colors font-bold"
+                        title={t("edit")}
+                      >
+                        <FileEdit className="h-5 w-5" />
+                      </button>
                     )}
                     {onDelete && (
-                       <button onClick={handleDelete} className="p-3 bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 rounded-full transition-colors font-bold" title={t('delete')}>
-                         <Trash2 className="h-5 w-5" />
-                       </button>
+                      <button
+                        onClick={handleDelete}
+                        className="p-3 bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 rounded-full transition-colors font-bold"
+                        title={t("delete")}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
                     )}
                   </>
                 )}
               </div>
               <span className="text-sm text-slate-400 font-bold uppercase tracking-wider flex items-center">
                 <Clock className="h-4 w-4 mr-1" />
-                {rental.createdAt?.seconds ? formatDistanceToNow(rental.createdAt.seconds * 1000, { addSuffix: true }) : 'Just now'}
+                {rental.createdAt?.seconds
+                  ? formatDistanceToNow(rental.createdAt.seconds * 1000, {
+                      addSuffix: true,
+                    })
+                  : "Just now"}
               </span>
             </div>
+
+            {!isOwner && (
+              <div className="mt-5 rounded-xl border border-rose-100 bg-rose-50/70 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-rose-800 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Spot something suspicious?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen((prev) => !prev)}
+                    className="text-xs font-bold text-rose-700 hover:text-rose-800 hover:underline"
+                  >
+                    {reportOpen ? "Cancel" : "Report listing"}
+                  </button>
+                </div>
+
+                {reportOpen && (
+                  <div className="mt-3 space-y-3">
+                    <select
+                      value={reportReason}
+                      onChange={(event) => setReportReason(event.target.value)}
+                      className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-rose-300"
+                    >
+                      <option>Suspicious listing</option>
+                      <option>Potential scam</option>
+                      <option>Incorrect details</option>
+                      <option>Duplicate listing</option>
+                      <option>Inappropriate content</option>
+                    </select>
+                    <textarea
+                      value={reportDetails}
+                      onChange={(event) => setReportDetails(event.target.value)}
+                      rows={3}
+                      placeholder="Add extra details (optional)"
+                      className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-rose-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleReportListing}
+                      disabled={reportLoading}
+                      className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+                    >
+                      {reportLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <Flag className="h-4 w-4" />
+                          Submit report
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {reportStatus && (
+                  <p className="mt-3 text-xs font-semibold text-rose-700">
+                    {reportStatus}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Map and Insights Sidebar */}
           <div className="w-full sm:w-[40%] bg-gray-50 border-l border-gray-200 flex flex-col">
-             {/* Desktop close button */}
-             <div className="hidden sm:flex justify-end p-4 pb-0 z-10 absolute top-0 right-0">
-               <button onClick={onClose} className="p-2 bg-white rounded-full shadow-sm hover:bg-gray-50 transition-colors z-10">
-                 <X className="h-5 w-5 text-gray-500" />
-               </button>
-             </div>
+            {/* Desktop close button */}
+            <div className="hidden sm:flex justify-end p-4 pb-0 z-10 absolute top-0 right-0">
+              <button
+                onClick={onClose}
+                className="p-2 bg-white rounded-full shadow-sm hover:bg-gray-50 transition-colors z-10"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
 
-             <div className="h-[300px] w-full bg-gray-200 z-0">
-               <SingleRentalMap rental={rental} />
-             </div>
+            <div className="h-[300px] w-full bg-gray-200 z-0">
+              <SingleRentalMap rental={rental} />
+            </div>
 
-             <div className="p-6 overflow-y-auto">
-               <h3 className="font-display text-lg font-bold text-gray-900 mb-4 pl-1">Location Insights</h3>
-               
-               <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
-                 <h4 className="flex items-center gap-2 font-display font-bold text-gray-800 mb-2">
-                   <Navigation className="w-4 h-4 text-violet-500" /> Commute
-                 </h4>
-                 <div className="space-y-2 text-sm text-gray-600 pl-6">
-                   <p className="flex justify-between"><span>To Downtown</span> <span className="font-medium text-gray-900">~25 min MTA</span></p>
-                   <p className="flex justify-between"><span>Nearest Subway</span> <span className="font-medium text-gray-900">3 blocks</span></p>
-                   <p className="text-xs text-gray-400 mt-1 italic">*Estimates based on typical times</p>
-                 </div>
-               </div>
+            <div className="p-6 overflow-y-auto">
+              <h3 className="font-display text-lg font-bold text-gray-900 mb-4 pl-1">
+                Location Insights
+              </h3>
 
-               <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                 <h4 className="flex items-center gap-2 font-display font-bold text-gray-800 mb-3">
-                   Neighborhood Vibe
-                 </h4>
-                 <ul className="space-y-3 text-sm text-gray-600">
-                   <li className="flex items-start gap-2">
-                     <Shield className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                     <span><strong>Safety:</strong> Generally highly rated. Vibrant streets after dark.</span>
-                   </li>
-                   <li className="flex items-start gap-2">
-                     <GraduationCap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                     <span><strong>Schools:</strong> District highly ranked for elementary education.</span>
-                   </li>
-                   <li className="flex items-start gap-2">
-                     <TrainFront className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
-                     <span><strong>Transit:</strong> Excellent access to major bus and subway lines.</span>
-                   </li>
-                 </ul>
-                 <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-50 italic">*AI-generated generic insight, API expanding soon.</p>
-               </div>
-             </div>
+              {insightsLoading && (
+                <div className="mb-4 rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-600 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading nearby transit and commute data...
+                </div>
+              )}
+
+              {insightsError && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                  {insightsError}
+                </div>
+              )}
+
+              {insights && (
+                <>
+                  <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+                    <h4 className="flex items-center gap-2 font-display font-bold text-gray-800 mb-2">
+                      <MapPin className="w-4 h-4 text-emerald-500" />{" "}
+                      Walkability
+                    </h4>
+                    <div className="flex items-end justify-between">
+                      <p className="text-3xl font-black text-slate-900">
+                        {insights.walkabilityScore}
+                        <span className="text-sm text-gray-500 font-semibold">
+                          {" "}
+                          / 100
+                        </span>
+                      </p>
+                      <p className="text-xs text-gray-500">API-derived score</p>
+                    </div>
+                  </div>
+
+                  {ownerProfile && (
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+                      <h4 className="flex items-center gap-2 font-display font-bold text-gray-800 mb-2">
+                        <Shield className="w-4 h-4 text-emerald-500" /> Owner
+                      </h4>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-slate-900">{ownerProfile.displayName || ownerProfile.email}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {ownerProfile.verified ? (
+                              <span className="text-emerald-600 font-semibold">Verified landlord</span>
+                            ) : (
+                              <span className="text-slate-500">Unverified</span>
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="text-right text-xs text-slate-600">
+                          {typeof ownerProfile.profileCompletion === 'number' && (
+                            <div>Profile: <strong>{Math.round(ownerProfile.profileCompletion)}%</strong></div>
+                          )}
+                          {typeof ownerProfile.responseRate === 'number' && (
+                            <div>Response: <strong>{Math.round(ownerProfile.responseRate * 100)}%</strong></div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+                    <h4 className="flex items-center gap-2 font-display font-bold text-gray-800 mb-2">
+                      <Bus className="w-4 h-4 text-blue-500" /> Nearby Transit
+                      Stops
+                    </h4>
+                    {insights.nearbyTransitStops.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No nearby transit stops found.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2 text-sm text-gray-700">
+                        {insights.nearbyTransitStops
+                          .slice(0, 4)
+                          .map((stop, index) => (
+                            <li
+                              key={`${stop.name}-${index}`}
+                              className="flex items-center justify-between gap-2"
+                            >
+                              <span className="truncate">{stop.name}</span>
+                              <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">
+                                {stop.type} · {stop.distanceMeters}m
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+                    <h4 className="flex items-center gap-2 font-display font-bold text-gray-800 mb-2">
+                      <Navigation className="w-4 h-4 text-violet-500" /> Commute
+                      to Major Hubs
+                    </h4>
+                    <div className="space-y-2 text-sm text-gray-700">
+                      {insights.commuteTimes.map((hub) => (
+                        <p key={hub.name} className="flex justify-between">
+                          <span>{hub.name}</span>
+                          <span className="font-semibold text-gray-900">
+                            ~{hub.durationMinutes} min
+                          </span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+                <h4 className="flex items-center gap-2 font-display font-bold text-gray-800 mb-2">
+                  <Navigation className="w-4 h-4 text-violet-500" /> Commute
+                </h4>
+                <div className="space-y-2 text-sm text-gray-600 pl-6">
+                  <p className="flex justify-between">
+                    <span>To Downtown</span>{" "}
+                    <span className="font-medium text-gray-900">
+                      ~25 min MTA
+                    </span>
+                  </p>
+                  <p className="flex justify-between">
+                    <span>Nearest Subway</span>{" "}
+                    <span className="font-medium text-gray-900">3 blocks</span>
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1 italic">
+                    *Estimates based on typical times
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <h4 className="flex items-center gap-2 font-display font-bold text-gray-800 mb-3">
+                  Neighborhood Vibe
+                </h4>
+                <ul className="space-y-3 text-sm text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <Shield className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Safety:</strong> Generally highly rated. Vibrant
+                      streets after dark.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <GraduationCap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Schools:</strong> District highly ranked for
+                      elementary education.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <TrainFront className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Transit:</strong> Excellent access to major bus
+                      and subway lines.
+                    </span>
+                  </li>
+                </ul>
+                <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-50 italic">
+                  *AI-generated generic insight, API expanding soon.
+                </p>
+              </div>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -445,30 +662,53 @@ export function RentalDetailsModal({ rental, isOpen, onClose, onEdit, onDelete, 
         {selectedImage && (
           <div className="fixed inset-0 z-[200] flex flex-col bg-black/95">
             <div className="absolute top-0 w-full p-4 flex justify-end z-[210] pointer-events-none">
-              <button 
-                onClick={() => setSelectedImage(null)} 
+              <button
+                onClick={() => setSelectedImage(null)}
                 className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors pointer-events-auto shadow-lg backdrop-blur-sm"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
+
             <div className="flex-1 w-full h-full">
-              <TransformWrapper initialScale={1} minScale={0.5} maxScale={4} centerOnInit>
+              <TransformWrapper
+                initialScale={1}
+                minScale={0.5}
+                maxScale={4}
+                centerOnInit
+              >
                 {({ zoomIn, zoomOut, resetTransform }) => (
                   <React.Fragment>
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md p-3 rounded-full z-[210] shadow-2xl border border-white/20">
-                      <button onClick={() => zoomOut()} className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"><ZoomOut className="w-5 h-5" /></button>
-                      <button onClick={() => resetTransform()} className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"><Maximize className="w-5 h-5" /></button>
-                      <button onClick={() => zoomIn()} className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"><ZoomIn className="w-5 h-5" /></button>
+                      <button
+                        onClick={() => zoomOut()}
+                        className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                      >
+                        <ZoomOut className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => resetTransform()}
+                        className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                      >
+                        <Maximize className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => zoomIn()}
+                        className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                      >
+                        <ZoomIn className="w-5 h-5" />
+                      </button>
                     </div>
-                    <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
-                      <motion.img 
-                        initial={{ opacity: 0, scale: 0.9 }} 
-                        animate={{ opacity: 1, scale: 1 }} 
+                    <TransformComponent
+                      wrapperClass="!w-full !h-full"
+                      contentClass="!w-full !h-full flex items-center justify-center"
+                    >
+                      <motion.img
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        src={selectedImage} 
-                        alt="Full size" 
+                        src={selectedImage}
+                        alt="Full size"
                         className="max-w-[100vw] max-h-[100vh] object-contain cursor-grab active:cursor-grabbing"
                         draggable={false}
                       />
@@ -480,6 +720,6 @@ export function RentalDetailsModal({ rental, isOpen, onClose, onEdit, onDelete, 
           </div>
         )}
       </AnimatePresence>
-    </AnimatePresence>
+    </>
   );
 }

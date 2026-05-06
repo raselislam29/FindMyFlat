@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Mail, Lock, ChevronLeft, MoveRight } from "lucide-react";
+import { X, Mail, Lock, Loader2, KeyRound } from "lucide-react";
 import {
   getGoogleLoginErrorMessage,
   loginWithGoogle,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/firebase";
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 
@@ -20,18 +21,18 @@ export function LoginModal({
   onClose: () => void;
   initialMode?: "login" | "signup";
 }) {
-  const [method, setMethod] = useState<"options" | "email">("options");
-  const [isRegistering, setIsRegistering] = useState(initialMode === "signup");
+  const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      setMethod("options");
-      setIsRegistering(initialMode === "signup");
+      setMode(initialMode);
       setError("");
+      setInfo("");
     }
   }, [isOpen, initialMode]);
 
@@ -39,6 +40,7 @@ export function LoginModal({
     try {
       setLoading(true);
       setError("");
+      setInfo("");
       await loginWithGoogle();
       handleClose();
     } catch (e: any) {
@@ -52,8 +54,9 @@ export function LoginModal({
     e.preventDefault();
     setLoading(true);
     setError("");
+    setInfo("");
     try {
-      if (isRegistering) {
+      if (mode === "signup") {
         await createUserWithEmailAndPassword(auth, email, password);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
@@ -69,12 +72,34 @@ export function LoginModal({
     }
   };
 
+  const handleForgotPassword = async () => {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
+      setError("Enter your email first, then click Forgot password.");
+      setInfo("");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      setInfo("");
+      await sendPasswordResetEmail(auth, normalizedEmail);
+      setInfo("Password reset email sent. Check your inbox and spam folder.");
+    } catch (e: any) {
+      setError(e?.message || "Could not send reset email. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleClose = () => {
-    setMethod("options");
-    setIsRegistering(false);
+    setMode("login");
     setEmail("");
     setPassword("");
     setError("");
+    setInfo("");
     onClose();
   };
 
@@ -95,22 +120,13 @@ export function LoginModal({
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative z-10"
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative z-10 border border-slate-200/70"
         >
-          <div className="bg-gradient-to-r from-violet-600 to-fuchsia-500 p-6 flex justify-between items-center text-white">
-            <h2 className="text-xl font-display font-bold flex items-center gap-2">
-              {method !== "options" && (
-                <button
-                  onClick={() => {
-                    setMethod("options");
-                    setError("");
-                  }}
-                  className="hover:bg-white/20 p-1 rounded-full transition-colors"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              )}
-              {isRegistering ? "Create an account" : "Welcome back"}
+          <div className="bg-gradient-to-r from-slate-900 to-slate-700 p-6 flex justify-between items-center text-white">
+            <h2 className="text-xl font-display font-bold">
+              {mode === "signup"
+                ? "Create your account"
+                : "Sign in to continue"}
             </h2>
             <button
               onClick={handleClose}
@@ -121,6 +137,31 @@ export function LoginModal({
           </div>
 
           <div className="p-8">
+            <div className="mb-6 rounded-xl bg-slate-100 p-1.5 grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                  setInfo("");
+                }}
+                className={`rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${mode === "login" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signup");
+                  setError("");
+                  setInfo("");
+                }}
+                className={`rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${mode === "signup" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                Sign Up
+              </button>
+            </div>
+
             {error && (
               <div className="mb-6 p-4 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100 flex flex-col gap-2">
                 <span>{error}</span>
@@ -142,94 +183,114 @@ export function LoginModal({
               </div>
             )}
 
-            {method === "options" && (
-              <div className="space-y-4">
-                <button
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 font-bold py-3 px-6 rounded-full transition-all hover:shadow-md disabled:opacity-50"
-                >
-                  <img
-                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                    alt="Google"
-                    className="w-5 h-5"
-                  />
-                  Continue with Google
-                </button>
-
-                <div className="relative py-3 flex items-center">
-                  <div className="flex-grow border-t border-gray-200"></div>
-                  <span className="flex-shrink-0 mx-4 text-gray-400 text-sm">
-                    or connect with
-                  </span>
-                  <div className="flex-grow border-t border-gray-200"></div>
-                </div>
-
-                <button
-                  onClick={() => setMethod("email")}
-                  className="w-full flex items-center justify-between bg-violet-50 hover:bg-violet-100 text-violet-800 font-bold py-3 px-6 rounded-full transition-all border border-violet-100"
-                >
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 opacity-70" />
-                    Email and Password
-                  </div>
-                  <MoveRight className="h-5 w-5 opacity-50" />
-                </button>
+            {info && (
+              <div className="mb-6 p-4 bg-emerald-50 text-emerald-700 text-sm rounded-xl border border-emerald-100">
+                {info}
               </div>
             )}
 
-            {method === "email" && (
-              <form onSubmit={handleEmailAuth} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">
-                    Email
-                  </label>
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="h-4 w-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                    className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
                     placeholder="Enter your email"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">
-                    Password
-                  </label>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="h-4 w-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                   <input
                     type="password"
                     required
+                    minLength={mode === "signup" ? 6 : undefined}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                    className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
                     placeholder="••••••••"
                   />
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-500 hover:from-violet-700 hover:to-fuchsia-600 text-white font-bold py-3 px-6 rounded-full transition-all shadow-md hover:shadow-lg disabled:opacity-50 mt-4"
-                >
-                  {loading
-                    ? "Processing..."
-                    : isRegistering
-                      ? "Create Account"
-                      : "Sign In"}
-                </button>
-                <div className="text-center mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsRegistering(!isRegistering)}
-                    className="text-violet-600 font-bold hover:underline text-sm"
-                  >
-                    {isRegistering
-                      ? "Already have an account? Sign In"
-                      : "Need an account? Register"}
-                  </button>
-                </div>
-              </form>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-500 hover:from-violet-700 hover:to-fuchsia-600 text-white font-bold py-3 px-6 rounded-full transition-all shadow-md hover:shadow-lg disabled:opacity-50 mt-2 inline-flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : mode === "signup" ? (
+                  "Create Account"
+                ) : (
+                  "Sign In"
+                )}
+              </button>
+            </form>
+
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="mt-4 text-sm font-semibold text-violet-700 hover:text-violet-800 hover:underline inline-flex items-center gap-2 disabled:opacity-50"
+              >
+                <KeyRound className="h-4 w-4" />
+                Forgot password?
+              </button>
             )}
+
+            <div className="relative py-5 flex items-center">
+              <div className="flex-grow border-t border-gray-200"></div>
+              <span className="flex-shrink-0 mx-4 text-gray-400 text-sm">
+                or continue with
+              </span>
+              <div className="flex-grow border-t border-gray-200"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 font-bold py-3 px-6 rounded-full transition-all hover:shadow-md disabled:opacity-50"
+            >
+              <img
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google"
+                className="w-5 h-5"
+              />
+              Continue with Google
+            </button>
+
+            <div className="text-center mt-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(mode === "signup" ? "login" : "signup");
+                  setError("");
+                  setInfo("");
+                }}
+                className="text-violet-700 font-bold hover:underline text-sm"
+              >
+                {mode === "signup"
+                  ? "Already have an account? Sign In"
+                  : "Need an account? Sign Up"}
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>

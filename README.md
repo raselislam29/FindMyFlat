@@ -1,5 +1,3 @@
-<div align="center">
-
 # FindMyFlat
 
 FindMyFlat is a rental marketplace for browsing, posting, and managing flat and property listings. It combines search, map browsing, favorites, chat, and Firebase-backed authentication so tenants and landlords can use the app in one place.

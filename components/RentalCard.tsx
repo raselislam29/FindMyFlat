@@ -18,6 +18,8 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { motion } from "motion/react";
 import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export interface Rental {
   id: string;
@@ -63,6 +65,26 @@ export function RentalCard({
 
   const isOwner = user?.uid === rental.ownerId;
   const [isHovered, setIsHovered] = React.useState(false);
+  const [ownerProfile, setOwnerProfile] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const loadOwner = async () => {
+      try {
+        const ref = doc(db, "users", rental.ownerId);
+        const snap = await getDoc(ref);
+        if (!mounted) return;
+        if (snap.exists()) setOwnerProfile(snap.data());
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    if (rental.ownerId) void loadOwner();
+    return () => {
+      mounted = false;
+    };
+  }, [rental.ownerId]);
 
   return (
     <motion.div
@@ -149,10 +171,27 @@ export function RentalCard({
       <div className="p-6 flex flex-col flex-1">
         {/* Title & Location */}
         <div className="mb-4">
-          <h3 className="font-display font-black text-lg text-slate-900 mb-2 line-clamp-1 group-hover/card:text-transparent group-hover/card:bg-gradient-to-r group-hover/card:from-pink-600 group-hover/card:to-purple-600 group-hover/card:bg-clip-text transition-all duration-300">
-            {rental.title}
-          </h3>
-
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-display font-black text-lg text-slate-900 mb-0 line-clamp-1 group-hover/card:text-transparent group-hover/card:bg-gradient-to-r group-hover/card:from-pink-600 group-hover/card:to-purple-600 group-hover/card:bg-clip-text transition-all duration-300">
+              {rental.title}
+            </h3>
+            {ownerProfile?.verified && (
+              <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                Verified
+              </span>
+            )}
+          </div>
+          {ownerProfile && (
+            <div className="text-xs text-slate-500 mb-2">
+              <span className="font-semibold">Owner:</span> {ownerProfile.displayName || ownerProfile.email}
+              {typeof ownerProfile.profileCompletion === 'number' && (
+                <span className="ml-2 text-[11px] font-bold text-slate-600">· {Math.round(ownerProfile.profileCompletion)}% profile</span>
+              )}
+              {typeof ownerProfile.responseRate === 'number' && (
+                <span className="ml-2 text-[11px] font-bold text-slate-600">· {Math.round(ownerProfile.responseRate * 100)}% response</span>
+              )}
+            </div>
+          )}
           <div className="flex items-center text-slate-600 text-sm font-semibold mb-2 group-hover/card:text-slate-900 transition-colors">
             <MapPin className="h-4 w-4 mr-2 text-gradient-secondary shrink-0" />
             <span className="truncate">{rental.location}</span>
