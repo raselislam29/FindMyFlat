@@ -28,6 +28,11 @@ export function CreateRentalModal({ isOpen, onClose, onSuccess, rentalToEdit }: 
   const [status, setStatus] = useState<'available' | 'rented'>('available');
   const [propertyType, setPropertyType] = useState('Apartment');
   const [amenities, setAmenities] = useState<string[]>([]);
+  const [monthlyUtilities, setMonthlyUtilities] = useState<number | ''>('');
+  const [moveInCost, setMoveInCost] = useState<number | ''>('');
+  const [commuteMinutes, setCommuteMinutes] = useState<number | ''>('');
+  const [neighborhoodScore, setNeighborhoodScore] = useState<number | ''>('');
+  const [bestFor, setBestFor] = useState('Couples');
   const [mapPosition, setMapPosition] = useState<[number, number]>([40.7128, -74.0060]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   
@@ -59,6 +64,11 @@ export function CreateRentalModal({ isOpen, onClose, onSuccess, rentalToEdit }: 
       setStatus(rentalToEdit.status || 'available');
       setPropertyType(rentalToEdit.propertyType || 'Apartment');
       setAmenities(rentalToEdit.amenities || []);
+      setMonthlyUtilities(rentalToEdit.monthlyUtilities ?? '');
+      setMoveInCost(rentalToEdit.moveInCost ?? '');
+      setCommuteMinutes(rentalToEdit.commuteMinutes ?? '');
+      setNeighborhoodScore(rentalToEdit.neighborhoodScore ?? '');
+      setBestFor(rentalToEdit.bestFor || 'Couples');
       setMapPosition([rentalToEdit.lat || 40.7128, rentalToEdit.lng || -74.0060]);
     } else {
       setValue('', false);
@@ -67,6 +77,11 @@ export function CreateRentalModal({ isOpen, onClose, onSuccess, rentalToEdit }: 
       setStatus('available');
       setPropertyType('Apartment');
       setAmenities([]);
+      setMonthlyUtilities('');
+      setMoveInCost('');
+      setCommuteMinutes('');
+      setNeighborhoodScore('');
+      setBestFor('Couples');
       setMapPosition([40.7128, -74.0060]);
     }
     clearSuggestions();
@@ -163,6 +178,11 @@ export function CreateRentalModal({ isOpen, onClose, onSuccess, rentalToEdit }: 
         amenities,
         hidePhone,
         photoUrls,
+        monthlyUtilities: monthlyUtilities === '' ? 0 : Number(monthlyUtilities),
+        moveInCost: moveInCost === '' ? 0 : Number(moveInCost),
+        commuteMinutes: commuteMinutes === '' ? 0 : Number(commuteMinutes),
+        neighborhoodScore: neighborhoodScore === '' ? 0 : Number(neighborhoodScore),
+        bestFor,
         status: status,
         lat: mapPosition[0],
         lng: mapPosition[1],
@@ -287,21 +307,87 @@ export function CreateRentalModal({ isOpen, onClose, onSuccess, rentalToEdit }: 
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amenities</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['Parking', 'Pet-friendly', 'Furnished', 'AC', 'Balcony', 'Mosque', 'Grocery'].map((amenity, idx) => (
-                      <button
-                        type="button"
-                        key={`${amenity}-${idx}`}
-                        onClick={() => {
-                          setAmenities(prev => prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]);
-                        }}
-                        className={`px-3 py-1 text-xs rounded-full border transition-colors ${amenities.includes(amenity) ? 'bg-violet-100 border-violet-200 text-violet-800 font-medium' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        {amenity}
-                      </button>
-                    ))}
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Best for</label>
+                  <select
+                    value={bestFor}
+                    onChange={(e) => setBestFor(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  >
+                    <option value="Couples">Couples</option>
+                    <option value="Students">Students</option>
+                    <option value="Families">Families</option>
+                    <option value="Remote workers">Remote workers</option>
+                    <option value="Professionals">Professionals</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Utilities / month</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={monthlyUtilities}
+                    onChange={(e) => setMonthlyUtilities(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    placeholder="120"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Move-in cost</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={moveInCost}
+                    onChange={(e) => setMoveInCost(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    placeholder="800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Commute (min)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={commuteMinutes}
+                    onChange={(e) => setCommuteMinutes(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    placeholder="25"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Area score (0-100)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={neighborhoodScore}
+                    onChange={(e) => setNeighborhoodScore(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    placeholder="88"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amenities</label>
+                <div className="flex flex-wrap gap-2">
+                  {['Parking', 'Pet-friendly', 'Furnished', 'AC', 'Balcony', 'Mosque', 'Grocery'].map((amenity, idx) => (
+                    <button
+                      type="button"
+                      key={`${amenity}-${idx}`}
+                      onClick={() => {
+                        setAmenities(prev => prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]);
+                      }}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${amenities.includes(amenity) ? 'bg-violet-100 border-violet-200 text-violet-800 font-medium' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                    >
+                      {amenity}
+                    </button>
+                  ))}
                 </div>
               </div>
               

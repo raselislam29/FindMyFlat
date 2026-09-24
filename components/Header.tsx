@@ -16,45 +16,44 @@ import { motion } from "motion/react";
 
 export function Header({ onPostClick }: { onPostClick?: () => void }) {
   const { language, setLanguage, t } = useLanguage();
-  const { user, login, logout, loading } = useAuth();
+  const { user, logout, loading } = useAuth();
 
   return (
-    <header className="bg-white/70 backdrop-blur-2xl sticky top-0 z-10 border-b border-white/20 transition-all shadow-soft">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-20 items-center">
+    <header className="sticky top-0 z-30 border-b border-[#e9dfd6] bg-[#f7f2ee]/80 backdrop-blur-xl">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-20 items-center justify-between gap-6">
           <div className="flex items-center">
             <Link
               href="/"
-              className="flex items-center gap-3 text-slate-800 hover:opacity-90 transition-opacity group"
+              className="flex items-center gap-3 text-slate-800 transition-opacity hover:opacity-90"
             >
               <motion.div
-                whileHover={{ rotate: 12, scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className="gradient-overlay-primary text-white p-2.5 rounded-2xl shadow-glow-pink hover:shadow-glow-pink"
+                whileHover={{ rotate: 12, scale: 1.08 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1e2430] text-[#f7f2ee] shadow-[0_18px_40px_rgba(30,36,48,0.18)]"
               >
-                <Home className="h-6 w-6" />
+                <Home className="h-5 w-5" />
               </motion.div>
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="font-display font-extrabold text-2xl tracking-tight hidden sm:block text-gradient-primary"
+                className="hidden text-2xl font-black tracking-[-0.08em] text-[#1f2937] sm:block"
               >
                 {t("appTitle")}
               </motion.span>
             </Link>
           </div>
 
-          <div className="flex items-center gap-5">
-            {/* Language Switcher - Modern Design */}
+          <div className="flex items-center gap-4">
             <motion.div
               whileHover={{ scale: 1.02 }}
-              className="flex items-center bg-gradient-to-r from-slate-100/50 to-slate-50/50 backdrop-blur-sm rounded-full p-1.5 border border-slate-200/50 shadow-soft"
+              className="flex items-center rounded-full border border-[#e7ddd3] bg-white/70 p-1.5 shadow-[0_8px_22px_rgba(17,24,39,0.05)]"
             >
               <button
                 onClick={() => setLanguage("bn")}
-                className={`px-4 py-2 rounded-full text-xs uppercase tracking-wider font-bold transition-all duration-300 ${
+                className={`rounded-full px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
                   language === "bn"
-                    ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg shadow-purple-500/20"
+                    ? "bg-[#1e2430] text-[#f7f2ee] shadow-md"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -62,9 +61,9 @@ export function Header({ onPostClick }: { onPostClick?: () => void }) {
               </button>
               <button
                 onClick={() => setLanguage("en")}
-                className={`px-4 py-2 rounded-full text-xs uppercase tracking-wider font-bold transition-all duration-300 ${
+                className={`rounded-full px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
                   language === "en"
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/20"
+                    ? "bg-[#d6a57a] text-[#1f2937] shadow-md"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -77,33 +76,31 @@ export function Header({ onPostClick }: { onPostClick?: () => void }) {
                 {user ? (
                   <div className="flex items-center gap-3">
                     <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.96 }}
                       onClick={() =>
                         window.dispatchEvent(new CustomEvent("open-chats"))
                       }
-                      className="text-slate-600 hover:text-pink-500 transition-colors p-2.5 rounded-full hover:bg-pink-50"
+                      className="rounded-full p-2.5 text-slate-600 transition-colors hover:bg-[#f3e7dc] hover:text-[#1f2937]"
                       title="Messages"
                     >
                       <MessageCircle className="h-5 w-5" />
                     </motion.button>
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.96 }}
                       onClick={onPostClick}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 btn-primary text-xs font-bold rounded-full shadow-glow-purple"
+                      className="inline-flex items-center gap-2 rounded-full bg-[#1e2430] px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#f7f2ee] shadow-[0_16px_30px_rgba(30,36,48,0.2)] transition-all hover:bg-[#2d3748]"
                     >
                       <PlusCircle className="h-4 w-4" />
                       <Sparkles className="h-3 w-3" />
-                      <span className="hidden sm:inline uppercase tracking-widest text-[10px]">
-                        {t("postRental")}
-                      </span>
+                      <span className="hidden sm:inline">{t("postRental")}</span>
                     </motion.button>
 
                     <div className="relative group">
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        className="flex items-center gap-2 hover:opacity-90 transition-opacity"
+                        whileHover={{ scale: 1.04 }}
+                        className="flex items-center gap-2"
                       >
                         <div className="relative">
                           <img
@@ -112,27 +109,28 @@ export function Header({ onPostClick }: { onPostClick?: () => void }) {
                               `https://ui-avatars.com/api/?name=${user.email}`
                             }
                             alt="User"
-                            className="w-10 h-10 rounded-full border-2 border-gradient-to-r from-pink-400 to-purple-400 shadow-glow-purple"
+                            className="h-10 w-10 rounded-full border-2 border-[#d9bca4] object-cover shadow-[0_10px_25px_rgba(30,36,48,0.12)]"
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white shadow-sm"></div>
+                          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-[#3ebd7b]"></div>
                         </div>
                       </motion.button>
+
                       <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        initial={{ opacity: 0, y: 10, scale: 0.96 }}
                         whileHover={{ opacity: 1, y: 0, scale: 1 }}
-                        className="absolute right-0 mt-2 w-48 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 origin-top-right transform scale-95 group-hover:scale-100 p-2 group-hover:pointer-events-auto pointer-events-none"
+                        className="pointer-events-none absolute right-0 mt-2 w-48 origin-top-right scale-95 rounded-2xl border border-[#e9dfd6] bg-white/90 p-2 opacity-0 shadow-[0_25px_45px_rgba(17,24,39,0.12)] transition-all duration-200 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-hover:scale-100"
                       >
                         <Link
                           href="/dashboard"
-                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 rounded-xl transition-colors font-semibold flex items-center gap-2 mb-1"
+                          className="mb-1 flex w-full items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-[#f7f2ee]"
                         >
-                          <LayoutDashboard className="h-4 w-4 text-purple-500" />
+                          <LayoutDashboard className="h-4 w-4 text-[#b8754a]" />
                           Dashboard
                         </Link>
                         <button
                           onClick={logout}
-                          className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50/80 hover:text-red-700 rounded-xl transition-colors font-semibold flex items-center gap-2"
+                          className="flex w-full items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
                         >
                           <LogOut className="h-4 w-4" />
                           {t("logout")}
@@ -144,7 +142,7 @@ export function Header({ onPostClick }: { onPostClick?: () => void }) {
                   <div className="flex items-center gap-3">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileTap={{ scale: 0.96 }}
                       onClick={() =>
                         window.dispatchEvent(
                           new CustomEvent("open-login", {
@@ -152,16 +150,13 @@ export function Header({ onPostClick }: { onPostClick?: () => void }) {
                           }),
                         )
                       }
-                      className="text-xs uppercase tracking-widest font-bold text-slate-600 hover:text-slate-900 px-4 py-2.5 transition-colors hover:bg-slate-100 rounded-lg"
+                      className="rounded-full px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 transition-all hover:bg-[#f3e7dc]"
                     >
                       {t("signIn")}
                     </motion.button>
                     <motion.button
-                      whileHover={{
-                        scale: 1.05,
-                        boxShadow: "0 0 20px rgba(139, 92, 246, 0.3)",
-                      }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
                       onClick={() =>
                         window.dispatchEvent(
                           new CustomEvent("open-login", {
@@ -169,7 +164,7 @@ export function Header({ onPostClick }: { onPostClick?: () => void }) {
                           }),
                         )
                       }
-                      className="text-xs uppercase tracking-widest font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 border-2 border-transparent px-6 py-2.5 rounded-lg transition-all shadow-glow-purple"
+                      className="rounded-full bg-[#1e2430] px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#f7f2ee] shadow-[0_16px_28px_rgba(30,36,48,0.2)] transition-all hover:bg-[#2a3344]"
                     >
                       {t("signUp")}
                     </motion.button>

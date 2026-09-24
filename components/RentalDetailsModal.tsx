@@ -256,11 +256,28 @@ export function RentalDetailsModal({
               )}
             </div>
 
-            <div className="text-4xl font-display text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 font-extrabold mb-8 border-b border-indigo-50 pb-6">
+            <div className="text-4xl font-display text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 font-extrabold mb-4 border-b border-indigo-50 pb-4">
               ${rental.price.toLocaleString()}{" "}
               <span className="text-sm font-sans font-bold tracking-widest uppercase text-slate-400 ml-2">
                 {t("priceAmount")}
               </span>
+            </div>
+
+            <div className="mb-6 rounded-2xl border border-[#eadfd5] bg-[#f9f4f0] p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Estimated monthly total</span>
+                <span className="font-black text-[#1f2937]">${((rental.price || 0) + (rental.monthlyUtilities || 0)).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-slate-600">
+                <span>Rent + utilities</span>
+                <span>{typeof rental.monthlyUtilities === "number" && rental.monthlyUtilities > 0 ? `$${rental.monthlyUtilities.toLocaleString()}` : "Included"}</span>
+              </div>
+              {typeof rental.moveInCost === "number" && rental.moveInCost > 0 && (
+                <div className="mt-2 flex items-center justify-between text-sm text-slate-600">
+                  <span>Move-in cost</span>
+                  <span>${rental.moveInCost.toLocaleString()}</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-2 py-2 mb-8">

@@ -33,6 +33,11 @@ service cloud.firestore {
         && (!('photoUrls' in data) || (data.photoUrls is list && data.photoUrls.size() <= 10))
         && (!('propertyType' in data) || data.propertyType is string && data.propertyType.size() <= 50)
         && (!('amenities' in data) || (data.amenities is list && data.amenities.size() <= 20))
+        && (!('monthlyUtilities' in data) || (data.monthlyUtilities is number && data.monthlyUtilities >= 0))
+        && (!('moveInCost' in data) || (data.moveInCost is number && data.moveInCost >= 0))
+        && (!('commuteMinutes' in data) || (data.commuteMinutes is number && data.commuteMinutes >= 0))
+        && (!('neighborhoodScore' in data) || (data.neighborhoodScore is number && data.neighborhoodScore >= 0 && data.neighborhoodScore <= 100))
+        && (!('bestFor' in data) || (data.bestFor is string && data.bestFor.size() <= 50))
         && (!('lat' in data) || (data.lat is number && data.lat >= -90 && data.lat <= 90))
         && (!('lng' in data) || (data.lng is number && data.lng >= -180 && data.lng <= 180))
         && data.createdAt is timestamp
@@ -72,7 +77,7 @@ service cloud.firestore {
         && incoming().ownerId == existing().ownerId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
-        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'price', 'location', 'bedrooms', 'bathrooms', 'sizeSqft', 'contactPhone', 'hidePhone', 'photoUrls', 'propertyType', 'amenities', 'status', 'updatedAt', 'lat', 'lng']);
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'price', 'location', 'bedrooms', 'bathrooms', 'sizeSqft', 'contactPhone', 'hidePhone', 'photoUrls', 'propertyType', 'amenities', 'monthlyUtilities', 'moveInCost', 'commuteMinutes', 'neighborhoodScore', 'bestFor', 'status', 'updatedAt', 'lat', 'lng']);
         
       allow delete: if isOwner(existing());
     }
@@ -85,6 +90,25 @@ service cloud.firestore {
       match /favorites/{favoriteId} {
         allow read: if isSignedIn() && request.auth.uid == userId;
         allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      match /savedSearches/{searchId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasAll(['searchTerm', 'filterType', 'filterAmenities', 'alertsEnabled', 'createdAt'])
+          && request.resource.data.searchTerm is string
+          && request.resource.data.searchTerm.size() <= 200
+          && request.resource.data.filterType is string
+          && request.resource.data.filterAmenities is list
+          && request.resource.data.filterAmenities.size() <= 20
+          && request.resource.data.alertsEnabled is bool
+          && request.resource.data.createdAt == request.time;
+        allow update: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['alertsEnabled'])
+          && request.resource.data.alertsEnabled is bool;
+        allow delete: if isSignedIn() && request.auth.uid == userId;
       }
     }
 
